@@ -1,0 +1,125 @@
+[package]
+name = "lightcraft-android"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "LightCraft on Android: the real engine and egui shell on winit's NativeActivity backend"
+publish = false
+
+# cargo-apk turns this cdylib into the APK's lib/arm64-v8a/liblightcraft.so, and the artifact name is
+# what the injected `android.app.lib_name` meta-data points at (with `-` → `_`). A mismatch yields an
+# APK that installs and then dies on launch, so the lib name is deliberate — the same shape
+# `apps/deckcraft-android`, `apps/vectorcraft-android` and the rest of the suite use.
+[lib]
+name = "lightcraft"
+crate-type = ["cdylib"]
+
+# Omit `[lints] workspace = true`: the workspace forbids unsafe_code, which trips on the
+# `#[unsafe(no_mangle)]` entry point this crate needs, and nothing else here wants the lints.
+[features]
+# The official LightCraft builds are documented as passing `--features heif` (the crate's own
+# comment: "Open HEIC/HEIF photos (the optional lightcraft-heif crate). Not default so distributors
+# choose it (HEVC patents)"), and a phone's default photo format is HEIC. A port that omits it ships
+# an editor that reports every photo off an iPhone as failed, which is the one thing this app is for.
+# On by default here instead of patching upstream.
+default = ["heif"]
+heif = ["lightcraft-codecs/heif"]
+
+[dependencies]
+lightcraft-engine = { workspace = true }
+lightcraft-ui-egui = { workspace = true }
+# The PNG encoder behind `Services::png`, and the crate the `heif` feature above switches on.
+lightcraft-codecs = { workspace = true }
+lightcraft-raster = { workspace = true }
+egui = { workspace = true }
+log = { workspace = true }
+serde_json = { workspace = true }
+
+# `android-native-activity` is the whole reason this builds: without a backend feature,
+# `android-activity` is pulled with no backend and eframe fails with `file not found for module
+# activity_impl` plus `Either "game-activity" or "native-activity" must be enabled as features` — a
+# missing feature, not a code problem.
+#
+# `accesskit` is deliberately absent, and here it is unreachable: LightCraft's `ui-egui` has no
+# eframe dependency at all (the desktop shell is the eframe user), so this is the only eframe in the
+# graph and it never asks for accesskit — which eframe `compile_error!`s alongside
+# `android-native-activity`, because egui's accesskit integration on Android goes through the
+# GameActivity backend while this packages NativeActivity. The same situation DeckCraft, VectorCraft,
+# WordCraft and GridCraft were in.
+#
+# The android-* features are inert elsewhere (winit only binds android-activity under
+# cfg(target_os = "android")), so the host workspace is unaffected.
+eframe = { workspace = true, features = ["default_fonts", "wgpu", "android-native-activity"] }
+# Needed to name `AndroidApp` for `NativeOptions::android_app`; eframe does not re-export winit.
+# Pinned to the exact version eframe/egui-winit build against.
+winit = { version = "=0.30.13", default-features = false, features = ["android-native-activity"] }
+
+[package.metadata.android]
+package = "ai.storyteller.lightcraft"
+apk_name = "lightcraft"
+build_targets = ["aarch64-linux-android"]
+strip = "strip"
+# Theme resources — the two edge-to-edge fixes live in res/values/styles.xml.
+resources = "res"
+
+[package.metadata.android.sdk]
+# 26 = Android 8.0: the floor for a modern Vulkan driver surface.
+min_sdk_version = 26
+target_sdk_version = 35
+
+[package.metadata.android.application]
+label = "LightCraft"
+# Variant B (immersive fullscreen) is what fixed the menu bar sitting under the notification bar on
+# the tablet in the sibling ports; variant A is the alternative — see res/values/styles.xml.
+theme = "@style/LightcraftFullscreen"
+icon = "@mipmap/ic_launcher"
+# The .so is large and the engine reads media by memory map; keep it uncompressed so it can be mapped
+# from the APK directly.
+extract_native_libs = true
+
+# The Activity must not be *re-created* when the window is resized or the app is put into
+# split-screen. Entering or leaving multi-window changes `screenLayout` and `smallestScreenSize`, and
+# an Activity that does not declare them is destroyed and built again. For a NativeActivity that is
+# fatal: winit's Android backend does not even forward the destroy (it logs
+# `TODO: forward onDestroy notification to application` and carries on), so the old event loop keeps
+# running against a dead Activity while a second one starts — the app hangs, then is killed.
+# cargo-apk's default is only `orientation|keyboardHidden|screenSize`; these are the rest a
+# fullscreen, resizable native app handles itself (the keyboard appearing, a density or font-scale
+# change, and the input devices).
+[package.metadata.android.application.activity]
+config_changes = "orientation|keyboardHidden|screenSize|smallestScreenSize|screenLayout|density|uiMode|fontScale|keyboard|navigation|touchscreen"
+
+[[package.metadata.android.uses_feature]]
+name = "android.hardware.vulkan.level"
+required = false
+version = 1
+
+# Storage access for the in-app picker (src/file_picker.rs). Android 10+ forbids reading shared
+# storage by path, so the picker probes each root and only offers the ones it can actually read — no
+# permission is needed for the app's own folder, and these widen what is reachable.
+#
+# MANAGE_EXTERNAL_STORAGE ("All files access") cannot be requested at runtime: it is granted by hand
+# in Settings ▸ Apps ▸ LightCraft ▸ Special access. Play restricts it to file-manager-class apps,
+# which does not apply to a sideloaded build. Saving anywhere outside the app's own folder needs it
+# too.
+[[package.metadata.android.uses_permission]]
+name = "android.permission.MANAGE_EXTERNAL_STORAGE"
+
+# Photos and videos: what a camera roll is read with on Android 13+, and the permission a user is
+# most likely to grant ("Photos and videos"). Note it is `image/*` only — it will not show a RAW
+# sidecar's `.xmp` or a `.dng`'s neighbours that Android types differently.
+[[package.metadata.android.uses_permission]]
+name = "android.permission.READ_MEDIA_IMAGES"
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.READ_MEDIA_VIDEO"
+
+# Legacy storage permissions, only meaningful before Android 11.
+[[package.metadata.android.uses_permission]]
+name = "android.permission.READ_EXTERNAL_STORAGE"
+max_sdk_version = 32
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.WRITE_EXTERNAL_STORAGE"
+max_sdk_version = 29
