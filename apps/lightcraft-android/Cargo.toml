@@ -53,7 +53,10 @@ serde_json = { workspace = true }
 eframe = { workspace = true, features = ["default_fonts", "wgpu", "android-native-activity"] }
 # Needed to name `AndroidApp` for `NativeOptions::android_app`; eframe does not re-export winit.
 # Pinned to the exact version eframe/egui-winit build against.
-winit = { version = "=0.30.13", default-features = false, features = ["android-native-activity"] }
+# The fork is 0.30.13, pinned by [patch.crates-io] in the workspace root. Declared here via the
+# workspace (version = "0.30") so cargo-apk's dependency tree sees the same winit eframe uses;
+# the version pin is a workspace one, not a crates.io `=0.30.13` (which would fight the patch).
+winit = { version = "0.30", default-features = false, features = ["android-native-activity"] }
 
 [package.metadata.android]
 package = "ai.storyteller.lightcraft"

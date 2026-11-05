@@ -36,3 +36,6 @@
 ### Known issues
 
 See *Known gaps* in the [README](README.md) and [`docs/PORT-NOTES.md`](docs/PORT-NOTES.md).
+## 2026-11-05
+
+- Port updated to lightcraft v0.18.1.

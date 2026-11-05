@@ -489,11 +489,11 @@ impl eframe::App for Shell {
         self.end_if_quitting(ctx);
     }
 
-    fn raw_input_hook(&mut self, _ctx: &egui::Context, raw: &mut egui::RawInput) {
+    fn raw_input_hook(&mut self, ctx: &egui::Context, raw: &mut egui::RawInput) {
         // Before the app, so the frame it sees already has the modifiers a desktop backend would have
         // reported (see `modifiers`).
         self.modifiers.apply(raw);
-        self.inner.raw_input_hook(raw);
+        self.inner.raw_input_hook(ctx, raw);
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
