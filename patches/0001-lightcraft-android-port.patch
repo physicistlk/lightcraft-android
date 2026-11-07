@@ -1,8 +1,69 @@
-diff --git a/crates/ui-egui/src/import.rs b/crates/ui-egui/src/import.rs
-index a18357e..4f72df5 100644
---- a/crates/ui-egui/src/import.rs
-+++ b/crates/ui-egui/src/import.rs
-@@ -1045,11 +1045,21 @@ pub fn body(app: &mut LightcraftApp, ui: &mut egui::Ui, d: &mut ImportDialog) {
+diff --git a/Cargo.lock b/Cargo.lock
+index 598721a9..124ba998 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -3614,6 +3614,21 @@ dependencies = [
+  "zbus",
+ ]
+ 
++[[package]]
++name = "lightcraft-android"
++version = "0.19.0"
++dependencies = [
++ "eframe",
++ "egui",
++ "lightcraft-codecs",
++ "lightcraft-engine",
++ "lightcraft-raster",
++ "lightcraft-ui-egui",
++ "log",
++ "serde_json",
++ "winit",
++]
++
+ [[package]]
+ name = "lightcraft-catalog"
+ version = "0.19.0"
+diff --git a/crates/ui-egui/src/dialogs.rs b/crates/ui-egui/src/dialogs.rs
+index 91d9dd26..07559dbd 100644
+--- a/crates/ui-egui/src/dialogs.rs
++++ b/crates/ui-egui/src/dialogs.rs
+@@ -1752,12 +1752,26 @@ fn export_destination_rows(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Token
+     if opts.destination_mode == D::SpecificFolder {
+         field(ui, "Folder", |ui| {
+             trailing_button_row(ui, |ui| {
+-                if app.services.pick_folder.is_some()
++                // The picker's answer arrives between frames, and a dialog is re-drawn rather than run again, so it is read here (see `pick::ask_inline`).
++                if let Some(p) = crate::pick::take_inline("exportFolder").and_then(|v| v.into_iter().next()) {
++                    *dir = p;
++                }
++                if app.services.pick_folder.is_some() {
++                    if crate::widgets::text_button(ui, "exportChooseFolder", crate::i18n::tr("Choose…"), false).clicked()
++                        && let Some(pick) = app.services.pick_folder.as_mut()
++                        && let Some(d) = pick()
++                    {
++                        *dir = d;
++                    }
++                } else if app.services.picker.is_some()
+                     && crate::widgets::text_button(ui, "exportChooseFolder", crate::i18n::tr("Choose…"), false).clicked()
+-                    && let Some(pick) = app.services.pick_folder.as_mut()
+-                    && let Some(d) = pick()
+                 {
+-                    *dir = d;
++                    // Android has no `rfd`: the in-app picker shows it and answers next frame.
++                    crate::pick::ask_inline(
++                        &mut app.services,
++                        "exportFolder",
++                        crate::pick::PickRequest::folder(crate::i18n::tr("Export Folder")),
++                    );
+                 }
+                 crate::widgets::named(ui.add(egui::TextEdit::singleline(dir).desired_width(ui.available_width())), crate::i18n::tr("Folder"));
+             });
+diff --git a/crates/ui-egui/src/dialogs/import/body.rs b/crates/ui-egui/src/dialogs/import/body.rs
+index 5228f7b9..47678262 100644
+--- a/crates/ui-egui/src/dialogs/import/body.rs
++++ b/crates/ui-egui/src/dialogs/import/body.rs
+@@ -242,11 +242,21 @@ pub fn body(app: &mut LightcraftApp, ui: &mut egui::Ui, d: &mut ImportDialog) {
              ui.spacing_mut().item_spacing.x = 4.0;
              let shown = if d.destination.trim().is_empty() { crate::i18n::tr("Library Originals").to_string() } else { d.destination.clone() };
              ui.label(egui::RichText::new(shown).color(Tokens::get(ui.ctx()).text_label));
@@ -27,11 +88,48 @@ index a18357e..4f72df5 100644
              }
              if !d.destination.is_empty() && crate::widgets::text_button(ui, "importDestReset", crate::i18n::tr("Library"), false).clicked() {
                  d.destination.clear();
+diff --git a/crates/ui-egui/src/dialogs/settings/general.rs b/crates/ui-egui/src/dialogs/settings/general.rs
+index 1231e9d3..49df7c8d 100644
+--- a/crates/ui-egui/src/dialogs/settings/general.rs
++++ b/crates/ui-egui/src/dialogs/settings/general.rs
+@@ -21,7 +21,9 @@ pub(super) fn general_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens
+         path_label(ui, "settingsLocation", &location, egui::TextStyle::Body.resolve(ui.style()), t.text, 0.0);
+     });
+     row(ui, t, "", |ui| {
+-        let can = app.services.pick_folder.is_some();
++        // A host without the synchronous slot still has the background picker, and
++        // `app.openLibrary`/`app.newLibrary` go through `pick::ask`, which reaches it.
++        let can = app.services.pick_folder.is_some() || app.services.picker.is_some();
+         let r = ui.add_enabled(can, egui::Button::new(crate::i18n::tr("Open Library…")));
+         register(ui, "button:settingsOpenLibrary", r.rect);
+         if r.clicked() {
+@@ -37,7 +39,7 @@ pub(super) fn general_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens
+         }
+     });
+     // where libraries are folders to choose from (not in the browser, which keeps one)
+-    if app.services.pick_folder.is_some() {
++    if app.services.pick_folder.is_some() || app.services.picker.is_some() {
+         use crate::state::LaunchLibrary;
+         row(ui, t, crate::i18n::tr("At launch"), |ui| {
+             choices(
+diff --git a/crates/ui-egui/src/dialogs/settings/libraries.rs b/crates/ui-egui/src/dialogs/settings/libraries.rs
+index 5e615bfb..9d705d84 100644
+--- a/crates/ui-egui/src/dialogs/settings/libraries.rs
++++ b/crates/ui-egui/src/dialogs/settings/libraries.rs
+@@ -139,7 +139,7 @@ pub fn new_library(app: &mut LightcraftApp, p: &Value) -> Result<Value, String>
+         Some(_) => return Err("app.newLibrary: name must be a string".into()),
+     };
+     // from the menu: ask for the name first (default prefilled), then for the location
+-    if name.is_none() && p.get("path").is_none() && app.services.pick_folder.is_some() {
++    if name.is_none() && p.get("path").is_none() && (app.services.pick_folder.is_some() || app.services.picker.is_some()) {
+         crate::panels::dialogs::prompt(
+             app,
+             "New Library",
 diff --git a/crates/ui-egui/src/menus.rs b/crates/ui-egui/src/menus.rs
-index daf0f08..90c1f25 100644
+index b6b6c66c..2591223e 100644
 --- a/crates/ui-egui/src/menus.rs
 +++ b/crates/ui-egui/src/menus.rs
-@@ -1803,7 +1803,7 @@ pub fn ui_enabled(app: &LightcraftApp, id: &str) -> bool {
+@@ -41,7 +41,7 @@ pub fn ui_enabled(app: &LightcraftApp, id: &str) -> bool {
          "app.export" | "dialog.export" | "dialog.createPreset" | "dialog.rename" | "dialog.captureTime" | "dialog.copySettings" => {
              app.session.active().is_some()
          }
@@ -40,58 +138,22 @@ index daf0f08..90c1f25 100644
          "photo.editInPhotoCraft" | "photo.editInExternal" => app.session.active().is_some() && app.services.open_with.is_some(),
          "app.exportPrevious" => app.session.active().is_some() && app.session.last_export.is_some(),
          "dialog.pasteSettings" => app.session.active().is_some() && app.session.clipboard.is_some(),
-@@ -1819,7 +1819,9 @@ pub fn ui_enabled(app: &LightcraftApp, id: &str) -> bool {
+@@ -70,8 +70,8 @@ pub fn ui_enabled(app: &LightcraftApp, id: &str) -> bool {
          "file.exportCurvePresets" => !app.session.curve_presets.is_empty(),
          "view.compare" => app.session.catalog.len() > 1,
          "view.fullScreenPreview" | "view.infoOverlay" | "view.navigator" => app.session.active().is_some() || app.ui.fullscreen,
--        "app.openLibrary" | "app.newLibrary" | "file.addFolder" => app.services.pick_folder.is_some() && !crate::lightroom_import::is_running(app),
-+        "app.openLibrary" | "app.newLibrary" | "file.addFolder" => {
-+            (app.services.pick_folder.is_some() || app.services.picker.is_some()) && !crate::lightroom_import::is_running(app)
-+        }
+-        "app.openLibrary" | "app.newLibrary" => app.services.pick_folder.is_some() && crate::panels::settings::can_switch_library(app).is_ok(),
+-        "file.addFolder" => app.services.pick_folder.is_some() && !crate::lightroom_import::is_running(app),
++        "app.openLibrary" | "app.newLibrary" => (app.services.pick_folder.is_some() || app.services.picker.is_some()) && crate::panels::settings::can_switch_library(app).is_ok(),
++        "file.addFolder" => (app.services.pick_folder.is_some() || app.services.picker.is_some()) && !crate::lightroom_import::is_running(app),
          "file.backupLibrary" => app.services.backup_library.is_some(),
          "app.openLogFolder" => app.services.reveal.is_some() && app.services.log_file.is_some(),
          "file.restoreLibrary" => app.services.restore_library.is_some(),
-diff --git a/crates/ui-egui/src/panels/dialogs.rs b/crates/ui-egui/src/panels/dialogs.rs
-index 72528fc..5ed3ebf 100644
---- a/crates/ui-egui/src/panels/dialogs.rs
-+++ b/crates/ui-egui/src/panels/dialogs.rs
-@@ -900,12 +900,27 @@ pub fn show(app: &mut LightcraftApp, ctx: &egui::Context) {
-                     }
-                     field(ui, "Folder", |ui| {
-                         trailing_button_row(ui, |ui| {
--                            if app.services.pick_folder.is_some()
-+                            // The picker's answer arrives between frames, and a dialog is re-drawn
-+                            // rather than run again, so it is read here (see `pick::ask_inline`).
-+                            if let Some(p) = crate::pick::take_inline("exportFolder").and_then(|v| v.into_iter().next()) {
-+                                *dir = p;
-+                            }
-+                            if app.services.pick_folder.is_some() {
-+                                if crate::widgets::text_button(ui, "exportChooseFolder", crate::i18n::tr("Choose…"), false).clicked()
-+                                    && let Some(pick) = app.services.pick_folder.as_mut()
-+                                    && let Some(d) = pick()
-+                                {
-+                                    *dir = d;
-+                                }
-+                            } else if app.services.picker.is_some()
-                                 && crate::widgets::text_button(ui, "exportChooseFolder", crate::i18n::tr("Choose…"), false).clicked()
--                                && let Some(pick) = app.services.pick_folder.as_mut()
--                                && let Some(d) = pick()
-                             {
--                                *dir = d;
-+                                // Android has no `rfd`: the in-app picker shows it and answers next frame.
-+                                crate::pick::ask_inline(
-+                                    &mut app.services,
-+                                    "exportFolder",
-+                                    crate::pick::PickRequest::folder(crate::i18n::tr("Export Folder")),
-+                                );
-                             }
-                             ui.add(egui::TextEdit::singleline(dir).desired_width(ui.available_width()));
-                         });
-diff --git a/crates/ui-egui/src/panels/edit.rs b/crates/ui-egui/src/panels/edit.rs
-index ed2ee46..b38546c 100644
---- a/crates/ui-egui/src/panels/edit.rs
-+++ b/crates/ui-egui/src/panels/edit.rs
-@@ -1001,11 +1001,12 @@ fn curve_footer(app: &mut LightcraftApp, ui: &mut egui::Ui, d: &DevelopSettings)
+diff --git a/crates/ui-egui/src/panels/edit/curve.rs b/crates/ui-egui/src/panels/edit/curve.rs
+index 0eec3a5e..b76f3a7a 100644
+--- a/crates/ui-egui/src/panels/edit/curve.rs
++++ b/crates/ui-egui/src/panels/edit/curve.rs
+@@ -435,11 +435,12 @@ fn curve_footer(app: &mut LightcraftApp, ui: &mut egui::Ui, d: &DevelopSettings)
                      crate::panels::dialogs::prompt(app, "Save Point Curve Preset", "Preset name", "", "curve.savePreset", json!({}), "name");
                      ui.close();
                  }
@@ -107,10 +169,10 @@ index ed2ee46..b38546c 100644
                      let _ = app.run("file.exportCurvePresets", json!({}));
                      ui.close();
 diff --git a/crates/ui-egui/src/panels/library_problem.rs b/crates/ui-egui/src/panels/library_problem.rs
-index 212e57d..f005c80 100644
+index c4a1bd94..cdc6899e 100644
 --- a/crates/ui-egui/src/panels/library_problem.rs
 +++ b/crates/ui-egui/src/panels/library_problem.rs
-@@ -134,7 +134,15 @@ pub fn show(app: &mut LightcraftApp, ctx: &egui::Context) {
+@@ -1122,7 +1122,15 @@ pub fn show(app: &mut LightcraftApp, ctx: &egui::Context, blocked: bool) {
                      }
                  };
                  button(ui, "libraryRetry", "Try Again", problem.can_retry && !problem.path.is_empty(), Choice::Retry);
@@ -127,97 +189,3 @@ index 212e57d..f005c80 100644
                  button(ui, "libraryTemporary", "Continue Without Saving", true, Choice::Temporary);
                  button(ui, "libraryQuit", "Quit", true, Choice::Quit);
              });
-diff --git a/crates/ui-egui/src/panels/settings.rs b/crates/ui-egui/src/panels/settings.rs
-index 3c7261e..af7ad05 100644
---- a/crates/ui-egui/src/panels/settings.rs
-+++ b/crates/ui-egui/src/panels/settings.rs
-@@ -115,7 +115,9 @@ fn general_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
-         ui.label(RichText::new(location).color(t.text));
-     });
-     row(ui, t, "", |ui| {
--        let can = app.services.pick_folder.is_some();
-+        // A host without the synchronous slot still has the background picker, and
-+        // `app.openLibrary`/`app.newLibrary` go through `pick::ask`, which reaches it.
-+        let can = app.services.pick_folder.is_some() || app.services.picker.is_some();
-         let r = ui.add_enabled(can, egui::Button::new(crate::i18n::tr("Open Library…")));
-         register(ui.ctx(), "button:settingsOpenLibrary", r.rect);
-         if r.clicked() {
-@@ -993,7 +995,7 @@ pub fn new_library(app: &mut LightcraftApp, p: &Value) -> Result<Value, String>
-         Some(_) => return Err("app.newLibrary: name must be a string".into()),
-     };
-     // from the menu: ask for the name first (default prefilled), then for the location
--    if name.is_none() && p.get("path").is_none() && app.services.pick_folder.is_some() {
-+    if name.is_none() && p.get("path").is_none() && (app.services.pick_folder.is_some() || app.services.picker.is_some()) {
-         crate::panels::dialogs::prompt(
-             app,
-             "New Library",
-diff --git a/crates/ui-egui/src/pick.rs b/crates/ui-egui/src/pick.rs
-index 1032a5c..48c553b 100644
---- a/crates/ui-egui/src/pick.rs
-+++ b/crates/ui-egui/src/pick.rs
-@@ -129,9 +129,64 @@ pub fn with_answer(params: &Value, key: &str, kind: PickKind, paths: &[String])
-     Value::Object(p)
- }
- 
-+thread_local! {
-+    /// A dialog's own "Choose…" is in flight: its key and the receiver the answer will arrive on.
-+    /// One per *window* — a second window is a second `android_main` on its own thread — and one at
-+    /// a time, because only one dialog is up at a time.
-+    static INLINE: std::cell::RefCell<Option<(&'static str, Receiver<Vec<String>>)>> = const { std::cell::RefCell::new(None) };
-+    /// The answer to that "Choose…", waiting for the dialog to read it. The dialog is *re-drawn*
-+    /// out of its own state rather than run again, so it is handed the path here instead of getting
-+    /// it back from a command.
-+    static INLINE_ANSWER: std::cell::RefCell<Option<(&'static str, Vec<String>)>> = const { std::cell::RefCell::new(None) };
-+}
-+
-+/// A dialog's own "Choose…" button (Export's folder, the import review's destination): the host's
-+/// dialog, started without blocking the frame the button was clicked in.
-+///
-+/// Nothing is returned, because a dialog cannot be "run again" with the answer the way a command is
-+/// by [`ask`]: the dialog that asked is re-drawn from its own state each frame, so it reads the
-+/// answer with [`take_inline`] once it arrives.
-+///
-+/// Only for a host that has a [`Picker`] and no synchronous slot. Where a synchronous slot *is*
-+/// registered (the desktop's `rfd`) the call site keeps asking it in line and has the path in hand
-+/// the same frame — so this changes nothing there.
-+pub fn ask_inline(services: &mut Services, key: &'static str, request: PickRequest) {
-+    let Some(start) = services.picker.as_mut() else {
-+        log::warn!("{key}: this host has no background file dialog");
-+        return;
-+    };
-+    match start(request) {
-+        Ok(rx) => INLINE.with(|slot| *slot.borrow_mut() = Some((key, rx))),
-+        Err(e) => log::warn!("{key}: no background file dialog ({e})"),
-+    }
-+}
-+
-+/// The answer to a dialog's own "Choose…" ([`ask_inline`]), once: the chosen paths, empty when the
-+/// user cancelled. `None` while the dialog is still up — the dialog keeps drawing.
-+pub fn take_inline(key: &str) -> Option<Vec<String>> {
-+    INLINE_ANSWER.with(|slot| {
-+        let mut slot = slot.borrow_mut();
-+        match slot.as_ref() {
-+            Some((k, _)) if *k == key => slot.take().map(|(_, paths)| paths),
-+            _ => None,
-+        }
-+    })
-+}
-+
- /// Each frame: run the commands whose dialogs have closed with something chosen; forget the
--/// cancelled ones and those whose dialog went away without an answer.
-+/// cancelled ones and those whose dialog went away without an answer. A dialog's own "Choose…"
-+/// ([`ask_inline`]) is answered here too, but into [`take_inline`] — its dialog is re-drawn rather
-+/// than run again.
- pub fn poll(app: &mut LightcraftApp, ctx: &egui::Context) {
-+    // Hand a dialog's own "Choose…" answer to the dialog that asked for it.
-+    let inline = INLINE.with(|slot| slot.borrow_mut().take());
-+    if let Some((key, rx)) = inline {
-+        match rx.try_recv() {
-+            Ok(paths) => INLINE_ANSWER.with(|slot| *slot.borrow_mut() = Some((key, paths))),
-+            Err(TryRecvError::Empty) => INLINE.with(|slot| *slot.borrow_mut() = Some((key, rx))),
-+            Err(TryRecvError::Disconnected) => INLINE_ANSWER.with(|slot| *slot.borrow_mut() = Some((key, Vec::new()))),
-+        }
-+    }
-     if app.pending_picks.is_empty() {
-         return;
-     }
