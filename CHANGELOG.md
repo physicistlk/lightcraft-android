@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-11-09
+
+- Re-ported to upstream lightcraft **v0.20.0** (`192ff729`) and rebuilt the signed APK:
+  `lightcraft-0.20.0-arm64-v8a-20261109.apk`, sha256
+  `0c8b138e924fcf4f164d47f656ed9b36f50eb095d8f1e69d33baf8bef8f56323`.
+- The port patch applied cleanly to v0.20.0; no hunk had to be moved or rewritten by hand this
+  round (all eight port call sites still live in the same files as v0.19.0).
+- Fixed the canonical patch itself: it had been generated with plain `git diff`, which left out the
+  staged `crates/ui-egui/src/pick.rs` change (`ask_inline` / `take_inline`). It is now produced with
+  `git diff HEAD` and carries that hunk, so a fresh apply to v0.20.0 gives a buildable tree.
+- `cargo check -p lightcraft-android --target aarch64-linux-android` clean (one pre-existing
+  dead-code warning in `prefs_watch`); APK verified: versionName `0.20.0`, `native-code:
+  'arm64-v8a'`, signed with the local test key.
+
 ## v0.1.0 — first published port (LightCraft 0.6.0)
 
 | | |

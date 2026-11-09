@@ -6,11 +6,11 @@ engine and egui interface, packaged as a NativeActivity APK for sideloading on a
 | | |
 |---|---|
 | Upstream project | [`storytold/lightcraft`](https://github.com/storytold/lightcraft) — Apache-2.0 OR MIT |
-| Pinned commit | `76b537786` (upstream version `0.6.0`) |
+| Pinned commit | `192ff7292` (upstream version `0.20.0`) |
 | Android package | `ai.storyteller.lightcraft` |
-| Published APK | `lightcraft-0.6.0-arm64-v8a.apk` — 21.3 MB, arm64-v8a, signed |
-| APK sha256 | `90199f68dff6c0344356a410161eb40e852a913ecc028ce825ee3bb177fffb7f` |
-| Upstream files changed | 7 |
+| Published APK | `lightcraft-0.20.0-arm64-v8a-20261109.apk` — 26.9 MiB, arm64-v8a, signed |
+| APK sha256 | `0c8b138e924fcf4f164d47f656ed9b36f50eb095d8f1e69d33baf8bef8f56323` |
+| Upstream files changed | 9 |
 | New port crate | `apps/lightcraft-android/` — about 1 400 lines of Rust plus resources |
 
 ## What this repository is
@@ -38,7 +38,7 @@ JDK 21, and `cargo install cargo-apk`.
 ```bash
 git clone https://github.com/storytold/lightcraft.git
 cd lightcraft
-git fetch --depth 1 origin 76b5377868d912db69a777bda253a5b1b96b22bd
+git fetch --depth 1 origin 192ff72923c39e6623f2c7ff67ab3a119deb8071
 git checkout FETCH_HEAD                        # the exact commit this port targets
 git apply /path/to/0001-lightcraft-android-port.patch
 cp -r /path/to/lightcraft-android apps/        # the shell crate from this repository
@@ -58,7 +58,7 @@ and the C compiler the native dependencies need, and the x86_64 linker for an em
 ## Install
 
 ```bash
-adb install -r lightcraft-0.6.0-arm64-v8a.apk
+adb install -r lightcraft-0.20.0-arm64-v8a-20261109.apk
 ```
 
 or copy the APK to the device and open it (installing from unknown sources must be allowed).

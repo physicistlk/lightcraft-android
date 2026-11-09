@@ -1,5 +1,5 @@
 diff --git a/Cargo.lock b/Cargo.lock
-index 598721a9..124ba998 100644
+index fd19f681..60e44d35 100644
 --- a/Cargo.lock
 +++ b/Cargo.lock
 @@ -3614,6 +3614,21 @@ dependencies = [
@@ -8,7 +8,7 @@ index 598721a9..124ba998 100644
  
 +[[package]]
 +name = "lightcraft-android"
-+version = "0.19.0"
++version = "0.20.0"
 +dependencies = [
 + "eframe",
 + "egui",
@@ -23,7 +23,7 @@ index 598721a9..124ba998 100644
 +
  [[package]]
  name = "lightcraft-catalog"
- version = "0.19.0"
+ version = "0.20.0"
 diff --git a/crates/ui-egui/src/dialogs.rs b/crates/ui-egui/src/dialogs.rs
 index 91d9dd26..07559dbd 100644
 --- a/crates/ui-egui/src/dialogs.rs
@@ -189,3 +189,73 @@ index c4a1bd94..cdc6899e 100644
                  button(ui, "libraryTemporary", "Continue Without Saving", true, Choice::Temporary);
                  button(ui, "libraryQuit", "Quit", true, Choice::Quit);
              });
+diff --git a/crates/ui-egui/src/pick.rs b/crates/ui-egui/src/pick.rs
+index c7e8e742..fb25eb87 100644
+--- a/crates/ui-egui/src/pick.rs
++++ b/crates/ui-egui/src/pick.rs
+@@ -129,9 +129,64 @@ pub fn with_answer(params: &Value, key: &str, kind: PickKind, paths: &[String])
+     Value::Object(p)
+ }
+ 
++thread_local! {
++    /// A dialog's own "Choose…" is in flight: its key and the receiver the answer will arrive on.
++    /// One per *window* — a second window is a second `android_main` on its own thread — and one at
++    /// a time, because only one dialog is up at a time.
++    static INLINE: std::cell::RefCell<Option<(&'static str, Receiver<Vec<String>>)>> = const { std::cell::RefCell::new(None) };
++    /// The answer to that "Choose…", waiting for the dialog to read it. The dialog is *re-drawn*
++    /// out of its own state rather than run again, so it is handed the path here instead of getting
++    /// it back from a command.
++    static INLINE_ANSWER: std::cell::RefCell<Option<(&'static str, Vec<String>)>> = const { std::cell::RefCell::new(None) };
++}
++
++/// A dialog's own "Choose…" button (Export's folder, the import review's destination): the host's
++/// dialog, started without blocking the frame the button was clicked in.
++///
++/// Nothing is returned, because a dialog cannot be "run again" with the answer the way a command is
++/// by [`ask`]: the dialog that asked is re-drawn from its own state each frame, so it reads the
++/// answer with [`take_inline`] once it arrives.
++///
++/// Only for a host that has a [`Picker`] and no synchronous slot. Where a synchronous slot *is*
++/// registered (the desktop's `rfd`) the call site keeps asking it in line and has the path in hand
++/// the same frame — so this changes nothing there.
++pub fn ask_inline(services: &mut Services, key: &'static str, request: PickRequest) {
++    let Some(start) = services.picker.as_mut() else {
++        log::warn!("{key}: this host has no background file dialog");
++        return;
++    };
++    match start(request) {
++        Ok(rx) => INLINE.with(|slot| *slot.borrow_mut() = Some((key, rx))),
++        Err(e) => log::warn!("{key}: no background file dialog ({e})"),
++    }
++}
++
++/// The answer to a dialog's own "Choose…" ([`ask_inline`]), once: the chosen paths, empty when the
++/// user cancelled. `None` while the dialog is still up — the dialog keeps drawing.
++pub fn take_inline(key: &str) -> Option<Vec<String>> {
++    INLINE_ANSWER.with(|slot| {
++        let mut slot = slot.borrow_mut();
++        match slot.as_ref() {
++            Some((k, _)) if *k == key => slot.take().map(|(_, paths)| paths),
++            _ => None,
++        }
++    })
++}
++
+ /// Each frame: run the commands whose dialogs have closed with something chosen; forget the
+-/// cancelled ones and those whose dialog went away without an answer.
++/// cancelled ones and those whose dialog went away without an answer. A dialog's own "Choose…"
++/// ([`ask_inline`]) is answered here too, but into [`take_inline`] — its dialog is re-drawn rather
++/// than run again.
+ pub fn poll(app: &mut LightcraftApp, ctx: &egui::Context) {
++    // Hand a dialog's own "Choose…" answer to the dialog that asked for it.
++    let inline = INLINE.with(|slot| slot.borrow_mut().take());
++    if let Some((key, rx)) = inline {
++        match rx.try_recv() {
++            Ok(paths) => INLINE_ANSWER.with(|slot| *slot.borrow_mut() = Some((key, paths))),
++            Err(TryRecvError::Empty) => INLINE.with(|slot| *slot.borrow_mut() = Some((key, rx))),
++            Err(TryRecvError::Disconnected) => INLINE_ANSWER.with(|slot| *slot.borrow_mut() = Some((key, Vec::new()))),
++        }
++    }
+     if app.pending_picks.is_empty() {
+         return;
+     }
