@@ -1,14 +1,14 @@
 diff --git a/Cargo.lock b/Cargo.lock
-index fd19f681..60e44d35 100644
+index 91917ef5..1d1ce17a 100644
 --- a/Cargo.lock
 +++ b/Cargo.lock
-@@ -3614,6 +3614,21 @@ dependencies = [
+@@ -3624,6 +3624,21 @@ dependencies = [
   "zbus",
  ]
  
 +[[package]]
 +name = "lightcraft-android"
-+version = "0.20.0"
++version = "0.21.1"
 +dependencies = [
 + "eframe",
 + "egui",
@@ -23,7 +23,7 @@ index fd19f681..60e44d35 100644
 +
  [[package]]
  name = "lightcraft-catalog"
- version = "0.20.0"
+ version = "0.21.1"
 diff --git a/crates/ui-egui/src/dialogs.rs b/crates/ui-egui/src/dialogs.rs
 index 91d9dd26..07559dbd 100644
 --- a/crates/ui-egui/src/dialogs.rs
@@ -113,10 +113,10 @@ index 1231e9d3..49df7c8d 100644
          row(ui, t, crate::i18n::tr("At launch"), |ui| {
              choices(
 diff --git a/crates/ui-egui/src/dialogs/settings/libraries.rs b/crates/ui-egui/src/dialogs/settings/libraries.rs
-index 5e615bfb..9d705d84 100644
+index 4e8d2a10..2f3f2b15 100644
 --- a/crates/ui-egui/src/dialogs/settings/libraries.rs
 +++ b/crates/ui-egui/src/dialogs/settings/libraries.rs
-@@ -139,7 +139,7 @@ pub fn new_library(app: &mut LightcraftApp, p: &Value) -> Result<Value, String>
+@@ -142,7 +142,7 @@ pub fn new_library(app: &mut LightcraftApp, p: &Value) -> Result<Value, String>
          Some(_) => return Err("app.newLibrary: name must be a string".into()),
      };
      // from the menu: ask for the name first (default prefilled), then for the location

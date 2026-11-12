@@ -6,10 +6,10 @@ engine and egui interface, packaged as a NativeActivity APK for sideloading on a
 | | |
 |---|---|
 | Upstream project | [`storytold/lightcraft`](https://github.com/storytold/lightcraft) — Apache-2.0 OR MIT |
-| Pinned commit | `192ff7292` (upstream version `0.20.0`) |
+| Pinned commit | `361e3bc0c` (upstream version `0.21.1`) |
 | Android package | `ai.storyteller.lightcraft` |
-| Published APK | `lightcraft-0.20.0-arm64-v8a-20261109.apk` — 26.9 MiB, arm64-v8a, signed |
-| APK sha256 | `0c8b138e924fcf4f164d47f656ed9b36f50eb095d8f1e69d33baf8bef8f56323` |
+| Published APK | `lightcraft-0.21.1-arm64-v8a-20261112.apk` — 27.1 MiB, arm64-v8a, signed |
+| APK sha256 | `012cd83891cfe2d201288191058739033e838309416b94b76e5ee7fbafb5a046` |
 | Upstream files changed | 9 |
 | New port crate | `apps/lightcraft-android/` — about 1 400 lines of Rust plus resources |
 
@@ -38,7 +38,7 @@ JDK 21, and `cargo install cargo-apk`.
 ```bash
 git clone https://github.com/storytold/lightcraft.git
 cd lightcraft
-git fetch --depth 1 origin 192ff72923c39e6623f2c7ff67ab3a119deb8071
+git fetch --depth 1 origin 361e3bc0c838ffe5e5cea515b1fe5b71951989c6
 git checkout FETCH_HEAD                        # the exact commit this port targets
 git apply /path/to/0001-lightcraft-android-port.patch
 cp -r /path/to/lightcraft-android apps/        # the shell crate from this repository
@@ -58,7 +58,7 @@ and the C compiler the native dependencies need, and the x86_64 linker for an em
 ## Install
 
 ```bash
-adb install -r lightcraft-0.20.0-arm64-v8a-20261109.apk
+adb install -r lightcraft-0.21.1-arm64-v8a-20261112.apk
 ```
 
 or copy the APK to the device and open it (installing from unknown sources must be allowed).
@@ -78,7 +78,7 @@ the Settings path — rather than showing them as empty.
 | **`File ▸ Quit` ends the process** | the log ends with `File > Quit: ending the process`, `pidof` is empty, the task is gone from `dumpsys activity activities`, and the app relaunches cleanly |
 | **Preferences survive** | `files/.config/lightcraft/ui.json` (the docking layout and settings) is written **while the app runs**, atomically, and the log holds no write failures after the fix described in `docs/PORT-NOTES.md` |
 | **HEIC decoding works** | `heif` is a default feature of the port crate, and it is proven by *decoding*: `lightcraft-cli render` on libheif's genuine `example.heic` (718 114 bytes, `ftyp` magic) wrote a real 419 907-byte 512×342 PNG of a photograph. The HEVC decoder is statically linked into the shipped arm64 `.so` (`lightcraft_heif…ycc8_to_rgb`, `heic_rs…hevc…Frame` symbols in the APK) |
-| The artifact is what it claims | `aapt2 dump badging` → package `ai.storyteller.lightcraft`, `versionName 0.6.0`, `minSdk 26`, `targetSdk 35`, `native-code: 'arm64-v8a'`; `apksigner verify --verbose` → v2 and v3 true; `llvm-nm --dynamic --defined-only` on the `.so` inside the APK → `android_main` and `ANativeActivity_onCreate`; the injected `android.app.lib_name` is `lightcraft`, matching `liblightcraft.so`; `configChanges=0x40001ff8`; the theme resolves to `attr/windowFullscreen`; the quit and picker strings are `grep -a`'d out of that `.so` |
+| The artifact is what it claims | `aapt2 dump badging` → package `ai.storyteller.lightcraft`, `versionName 0.21.1`, `minSdk 26`, `targetSdk 35`, `native-code: 'arm64-v8a'`; `apksigner verify --verbose` → v2 and v3 true; `llvm-nm --dynamic --defined-only` on the `.so` inside the APK → `android_main` and `ANativeActivity_onCreate`; the injected `android.app.lib_name` is `lightcraft`, matching `liblightcraft.so`; `configChanges=0x40001ff8`; the theme resolves to `attr/windowFullscreen`; the quit and picker strings are `grep -a`'d out of that `.so` |
 
 **Not verified:** the port's modifier-key tracking was not exercised in the emulator (`adb` cannot
 deliver a *held* modifier), and the picker's touch targets and scrolling are only real on a tablet.

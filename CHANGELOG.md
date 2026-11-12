@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-11-12
+
+- Re-ported to upstream lightcraft **v0.21.1** (`361e3bc0c`, the release that carries the 0.21.0
+  feature bump plus a patch update) and rebuilt the signed APK:
+  `lightcraft-0.21.1-arm64-v8a-20261112.apk`, 27.1 MiB, sha256
+  `012cd83891cfe2d201288191058739033e838309416b94b76e5ee7fbafb5a046`.
+- The port patch applied cleanly to v0.21.1 with no conflicts and **no hand re-port**: all eight
+  port call sites still live in the same files, and 0.21.0 added no new synchronous-picker call
+  sites that would need the background-picker gate widened.
+- The shipped patch was compared against the live `git diff HEAD` before resetting — they were
+  byte-identical, so no staged hunk was missing this round; `pick.rs` (`ask_inline` /
+  `take_inline`) is in the regenerated patch (`grep -c ask_inline` → 7) and was recovered intact.
+- `cargo check -p lightcraft-android --target aarch64-linux-android` clean (one pre-existing
+  dead-code warning in `prefs_watch`). APK verified by hand (the port has no Linux verifier):
+  `aapt2 dump badging` → `versionName 0.21.1`, `native-code: 'arm64-v8a'`, minSdk 26, targetSdk
+  35; `apksigner verify` → v2 and v3 true, signer `CN=LightCraft Android Local Test`;
+  `llvm-nm` on the packaged `.so` → `android_main` and `ANativeActivity_onCreate` exported;
+  every LOAD segment `0x4000`-aligned.
+- Regenerated patch re-checked against a pristine `v0.21.1` archive: `git apply --check` →
+  `PATCH APPLIES CLEAN`.
+
 ## 2026-11-09
 
 - Re-ported to upstream lightcraft **v0.20.0** (`192ff729`) and rebuilt the signed APK:
