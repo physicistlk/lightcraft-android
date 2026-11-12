@@ -105,16 +105,17 @@ answer.
 
 ## The rest of this set
 
-- [DeckCraft](https://github.com/kanaaka/deckcraft-android)
-- [EffectCraft](https://github.com/kanaaka/effectcraft-android)
-- [FilmCraft](https://github.com/kanaaka/filmcraft-android)
-- [GridCraft](https://github.com/kanaaka/gridcraft-android)
-- [PdfCraft](https://github.com/kanaaka/pdfcraft-android)
-- [PhotoCraft](https://github.com/kanaaka/photocraft-android)
-- [SoundCraft](https://github.com/kanaaka/soundcraft-android)
-- [VectorCraft](https://github.com/kanaaka/vectorcraft-android)
-- [WordCraft](https://github.com/kanaaka/wordcraft-android)
-- [shared-android-port](https://github.com/kanaaka/shared-android-port) — the pieces every port shares
+Every port in this set is built from the same patched upstream tree and published by
+[@physicistlk](https://github.com/physicistlk). Each link goes to that port's latest
+release, which carries the signed `arm64-v8a` APK:
+
+- [cadcraft-android](https://github.com/physicistlk/cadcraft-android/releases/latest) — CadCraft 0.20.1
+- [deckcraft-android](https://github.com/physicistlk/deckcraft-android/releases/latest) — DeckCraft 0.18.1
+- [gridcraft-android](https://github.com/physicistlk/gridcraft-android/releases/latest) — GridCraft 0.19.1
+- [pdfcraft-android](https://github.com/physicistlk/pdfcraft-android/releases/latest) — PdfCraft 0.21.1
+- [photocraft-android](https://github.com/physicistlk/photocraft-android/releases/latest) — PhotoCraft 0.23.1
+- [vectorcraft-android](https://github.com/physicistlk/vectorcraft-android/releases/latest) — VectorCraft 0.24.1
+- [wordcraft-android](https://github.com/physicistlk/wordcraft-android/releases/latest) — WordCraft 0.18.1
 
 ## Credits and licence
 
