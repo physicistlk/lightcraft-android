@@ -1,5 +1,35 @@
 # Changelog
 
+## 2026-11-18
+
+- Rebuilt the signed APK with the shared `vendor/winit` fix: **a physical mouse's right button is a
+  real secondary click**, and long-press-to-context-menu no longer applies to a mouse. Android
+  reports a mouse through the same motion events as a finger, and winit flattened every one of them
+  into a `Touch`, so egui treated a mouse as a touch screen: the right button arrived as a plain
+  tap and a long press was the only route to a context menu. `vendor/winit/src/platform_impl/android/mod.rs`
+  now reports `CursorMoved` + `MouseInput` when the motion event's source is `Source::Mouse` /
+  `Source::MouseRelative` or the pointer's `tool_type()` is `ToolType::Mouse`, diffing `button_state()`
+  so each button change is delivered exactly once. Finger input keeps the old touch path unchanged.
+- No upstream update this round: still lightcraft **v0.21.1** (`361e3bc0c`). Artifact:
+  `lightcraft-0.21.1-arm64-v8a-20261118.apk`, 27.1 MiB, sha256
+  `c1e5b61e97a9e5063eef65e97208b1a70c5573958c4244df95ba97634f9e3fb4`.
+- This port moved from the `storytold/winit` git dependency (rev `a517b384`) to the same vendored,
+  patched winit every other port uses: `winit = { path = "vendor/winit" }`, and the repository now
+  carries `vendor/winit/` next to the shell crate. The regenerated patch therefore gained a
+  `Cargo.toml` hunk (it had none before) and its `Cargo.lock` hunk drops the git `source` line for
+  `winit 0.30.13`; `apps/` and `vendor/` stay out of the patch, as in every earlier round.
+- The port patch applied cleanly to v0.21.1 with `git apply -3` and **nothing had to be re-ported by
+  hand**; `pick.rs` (`ask_inline` / `take_inline`) survived (`grep -c ask_inline` → 7).
+- `cargo check -p lightcraft-android --target aarch64-linux-android` clean (one pre-existing
+  dead-code warning in `prefs_watch`). APK verified by hand (the port has no Linux verifier):
+  `aapt2 dump badging` → `versionName 0.21.1`, `native-code: 'arm64-v8a'`, minSdk 26, targetSdk 35;
+  `apksigner verify --verbose --print-certs` → v2 and v3 true, signer
+  `CN=LightCraft Android Local Test`; `unzip -l` → `lib/arm64-v8a/liblightcraft.so`;
+  `llvm-nm --dynamic` on the packaged `.so` → `android_main` and `ANativeActivity_onCreate`
+  exported; `llvm-readelf -lW` → all four LOAD segments `Align 0x4000`.
+- Regenerated patch re-checked against a pristine `v0.21.1` archive plus `vendor/`:
+  `git apply --check` → `PATCH APPLIES CLEAN`.
+
 ## 2026-11-12
 
 - Re-ported to upstream lightcraft **v0.21.1** (`361e3bc0c`, the release that carries the 0.21.0

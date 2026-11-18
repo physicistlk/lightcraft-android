@@ -1,5 +1,5 @@
 diff --git a/Cargo.lock b/Cargo.lock
-index 91917ef5..1d1ce17a 100644
+index 91917ef5..411cde6e 100644
 --- a/Cargo.lock
 +++ b/Cargo.lock
 @@ -3624,6 +3624,21 @@ dependencies = [
@@ -24,6 +24,24 @@ index 91917ef5..1d1ce17a 100644
  [[package]]
  name = "lightcraft-catalog"
  version = "0.21.1"
+@@ -7719,7 +7734,6 @@ checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
+ [[package]]
+ name = "winit"
+ version = "0.30.13"
+-source = "git+https://github.com/storytold/winit.git?rev=a517b3846ee8457d84ee4975110bfda6797c44dc#a517b3846ee8457d84ee4975110bfda6797c44dc"
+ dependencies = [
+  "ahash",
+  "android-activity",
+diff --git a/Cargo.toml b/Cargo.toml
+index 6f52ff48..989fda67 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -203,4 +203,4 @@ egui_system_font_provider = { git = "https://github.com/storytold/egui.git", rev
+ eframe = { git = "https://github.com/storytold/egui.git", rev = "6d518fc799681571963842f95b55a6b68431b15a" }
+ egui_demo_lib = { git = "https://github.com/storytold/egui.git", rev = "6d518fc799681571963842f95b55a6b68431b15a" }
+ egui_inspection = { git = "https://github.com/storytold/egui.git", rev = "6d518fc799681571963842f95b55a6b68431b15a" }
+-winit = { git = "https://github.com/storytold/winit.git", rev = "a517b3846ee8457d84ee4975110bfda6797c44dc" }
++winit = { path = "vendor/winit" }
 diff --git a/crates/ui-egui/src/dialogs.rs b/crates/ui-egui/src/dialogs.rs
 index 91d9dd26..07559dbd 100644
 --- a/crates/ui-egui/src/dialogs.rs

@@ -8,8 +8,8 @@ engine and egui interface, packaged as a NativeActivity APK for sideloading on a
 | Upstream project | [`storytold/lightcraft`](https://github.com/storytold/lightcraft) — Apache-2.0 OR MIT |
 | Pinned commit | `361e3bc0c` (upstream version `0.21.1`) |
 | Android package | `ai.storyteller.lightcraft` |
-| Published APK | `lightcraft-0.21.1-arm64-v8a-20261112.apk` — 27.1 MiB, arm64-v8a, signed |
-| APK sha256 | `012cd83891cfe2d201288191058739033e838309416b94b76e5ee7fbafb5a046` |
+| Published APK | `lightcraft-0.21.1-arm64-v8a-20261118.apk` — 27.1 MiB, arm64-v8a, signed |
+| APK sha256 | `c1e5b61e97a9e5063eef65e97208b1a70c5573958c4244df95ba97634f9e3fb4` |
 | Upstream files changed | 9 |
 | New port crate | `apps/lightcraft-android/` — about 1 400 lines of Rust plus resources |
 
@@ -21,6 +21,7 @@ and obviously separable from upstream:
 ```
 apps/lightcraft-android/   the new shell crate — copy it into your checkout of upstream
 patches/                   the diff against upstream — apply it after checking out the pin
+vendor/winit/              the vendored winit the patch depends on (kept by hand, not in the patch)
 docs/PORT-NOTES.md         what was changed and why, fix by fix, with how each one was checked
 scripts/                   cross-compile environment, build and verify scripts (from shared-android-port)
 CHANGELOG.md               what is in the published APK
@@ -42,6 +43,7 @@ git fetch --depth 1 origin 361e3bc0c838ffe5e5cea515b1fe5b71951989c6
 git checkout FETCH_HEAD                        # the exact commit this port targets
 git apply /path/to/0001-lightcraft-android-port.patch
 cp -r /path/to/lightcraft-android apps/        # the shell crate from this repository
+cp -r /path/to/vendor .                        # the vendored winit the patch points at (see below)
 
 # any keystore of your own signs an installable APK; a throwaway test key is fine for sideloading
 keytool -genkeypair -keystore ks.jks -alias lightcraft -keyalg RSA -keysize 2048 -validity 10000 \
@@ -58,7 +60,7 @@ and the C compiler the native dependencies need, and the x86_64 linker for an em
 ## Install
 
 ```bash
-adb install -r lightcraft-0.21.1-arm64-v8a-20261112.apk
+adb install -r lightcraft-0.21.1-arm64-v8a-20261118.apk
 ```
 
 or copy the APK to the device and open it (installing from unknown sources must be allowed).
